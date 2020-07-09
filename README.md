@@ -4,7 +4,7 @@ A Kotlin written floating window view for Android.
 
 ## Screenshot
 
-
+<img src="https://github.com/j796160836/FloatingWindow_android/blob/master/screenshots/android.gif?raw=true" width="280" />
 
 ## Usage
 
