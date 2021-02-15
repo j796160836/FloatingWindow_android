@@ -14,14 +14,22 @@ import androidx.annotation.RequiresApi
 import androidx.core.view.children
 
 
+
 class FloatingWindowContainer : FrameLayout {
 
     private var _xDelta = 0
     private var _yDelta = 0
 
+    val leftMargin: Int
+        get() = (floatingWindow?.layoutParams as MarginLayoutParams).leftMargin
+    val topMargin: Int
+        get() = (floatingWindow?.layoutParams as MarginLayoutParams).topMargin
+
     var marginCalculation: MarginCalculation? = null
 
     var floatingWindow: View? = null
+
+    var onFloatingWindowInitialized: (() -> Unit)? = null
 
     constructor(context: Context) : super(context) {
         initView()
@@ -60,7 +68,7 @@ class FloatingWindowContainer : FrameLayout {
             val eventY = event.rawY.toInt()
             when (event.action and MotionEvent.ACTION_MASK) {
                 MotionEvent.ACTION_DOWN -> {
-                    val p = view.layoutParams as LayoutParams
+                    val p = view.layoutParams as MarginLayoutParams
                     _xDelta = eventX - p.leftMargin
                     _yDelta = eventY - p.topMargin
                 }
@@ -74,7 +82,7 @@ class FloatingWindowContainer : FrameLayout {
                     val container = view.parent as ViewGroup
 
                     val layoutParams =
-                        view.layoutParams as LayoutParams
+                        view.layoutParams as MarginLayoutParams
                     var newLeftMargin = eventX - _xDelta
                     var newTopMargin = eventY - _yDelta
                     if (floatingWindow != null) {
@@ -124,7 +132,10 @@ class FloatingWindowContainer : FrameLayout {
         super.onLayout(changed, left, top, right, bottom)
         if (floatingWindow == null) {
             setupFloatingWindow()
-            layoutTransition = LayoutTransition()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                layoutTransition = LayoutTransition()
+            }
+            onFloatingWindowInitialized?.invoke()
         }
     }
 
@@ -136,30 +147,37 @@ class FloatingWindowContainer : FrameLayout {
     ) {
         floatingWindow?.let { view ->
             val layoutParams =
-                view.layoutParams as LayoutParams
+                view.layoutParams as MarginLayoutParams
             layoutParams.leftMargin = leftMargin
             layoutParams.topMargin = topMargin
             view.layoutParams = layoutParams
         }
         if (animated) {
-            layoutTransition.enableTransitionType(LayoutTransition.CHANGING)
-            layoutTransition.addTransitionListener(object : LayoutTransition.TransitionListener {
-                override fun endTransition(
-                    transition: LayoutTransition?, arg1: ViewGroup?,
-                    arg2: View, arg3: Int
-                ) {
-                    transition?.disableTransitionType(LayoutTransition.CHANGING)
-                    transition?.removeTransitionListener(this)
-                    completeCallback?.invoke()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                    layoutTransition.enableTransitionType(LayoutTransition.CHANGING)
                 }
+                layoutTransition.addTransitionListener(object : LayoutTransition.TransitionListener {
+                    override fun endTransition(
+                        transition: LayoutTransition?, arg1: ViewGroup?,
+                        arg2: View, arg3: Int
+                    ) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                            transition?.disableTransitionType(LayoutTransition.CHANGING)
+                        }
+                        transition?.removeTransitionListener(this)
+                        completeCallback?.invoke()
+                    }
 
-                override fun startTransition(
-                    transition: LayoutTransition?,
-                    container: ViewGroup?, view: View, transitionType: Int
-                ) {
-                }
-            })
+                    override fun startTransition(
+                        transition: LayoutTransition?,
+                        container: ViewGroup?, view: View, transitionType: Int
+                    ) {
+                    }
+                })
+            }
         } else {
+            requestLayout()
             completeCallback?.invoke()
         }
     }
